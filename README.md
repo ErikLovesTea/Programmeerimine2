@@ -1,10 +1,14 @@
 # KooliProjekt
 
-Programmeerimine 2 õppeprojekt: ülesannete haldamise Web API, mille aluseks on õpetaja 02.10, 08.10, 16.10 ja 23.10 näited. Lahendus katab andmemudeli, migratsiooni, algandmed ning kõigi tabelite Get/List-päringud koos DTO-de, OperationResulti ja lehekülgjaotusega.
+Ülesannete haldamise Web API, mis on tehtud Programmeerimine 2 õppeaine raames õpetaja näidete põhjal.
+
+Rakendus kasutab C#-i, .NET 10, ASP.NET Core'i, Entity Framework Core'i, SQL Serverit ja MediatR-i.
 
 ## Käivitamine
 
-Vajalikud on .NET 10 SDK ning Windowsis SQL Server Express LocalDB. Automaatkontrollid kasutavad lisaks PowerShell 7 ja sqlcmd-d.
+Vaja on .NET 10 SDK-d ja SQL Server Express LocalDB-d.
+
+Ava Visual Studios `KooliProjekt.sln` ja vali käivitusprojektiks `KooliProjekt.WebAPI`. Terminalist käivitamiseks:
 
 ```powershell
 dotnet restore KooliProjekt.sln
@@ -12,108 +16,64 @@ dotnet build KooliProjekt.sln
 dotnet run --project KooliProjekt.WebAPI --launch-profile http
 ```
 
-Swagger: http://localhost:5086/swagger
+Swagger avaneb aadressil [http://localhost:5086/swagger](http://localhost:5086/swagger).
 
-Visual Studios ava `KooliProjekt.sln` ja vali käivitusprojektiks **KooliProjekt.WebAPI** (paremklõps → Set as Startup Project). Kaasas on ka selle projekti käivitav `KooliProjekt.slnLaunch` profiil. Application on klassiteek.
+Ühendus on seadistatud failis [appsettings.json](KooliProjekt.WebAPI/appsettings.json). Vaikimisi kasutatakse serverit `(localdb)\MSSQLLocalDB` ja andmebaasi `KooliProjekt_Opilane`.
 
-Esimesel käivitamisel rakendab `Program.cs` migratsioonid ja käivitab `SeedData.Generate`. Ühendus on `KooliProjekt.WebAPI/appsettings.json` failis:
-
-```text
-Server=(localdb)\MSSQLLocalDB;Database=KooliProjekt_Opilane;Trusted_Connection=True
-```
-
-Algandmed: **35 kasutajat, 35 ülesannete loendit ja 245 ülesannet**. Kasutajanimed ja koolitööde kirjeldused on sünteetilised. Seosed luuakse andmebaasi tegelike ID-de kaudu. Korduskäivitus ei dubleeri olemasolevaid algandmeid; puuduvad näidiskirjed lisatakse tagasi. Genereerimine on ühes tehingus ja seda saab välja lülitada seadistusega `SeedData:Enabled=false`. Kasutajatel on juhuslike salasõnade PBKDF2-räsid; sisselogimine ei kuulu selle ülesande skoopi.
+Käivitamisel rakendatakse migratsioonid ning lisatakse 35 kasutajat, 35 ülesannete loendit ja 245 ülesannet. Korduskäivitus ei dubleeri algandmeid. Andmete lisamise saab välja lülitada seadistusega `SeedData:Enabled=false`.
 
 ## API
 
-Kõik kontrollerid pärivad `ApiControllerBase`-ist ja saadavad päringud MediatR-i kaudu.
-
-| Andmed | Üks kirje | Lehekülg |
+| Andmed | Ühe kirje päring | Lehekülje päring |
 | --- | --- | --- |
-| Kasutajad | GET /api/Users/get/1 | GET /api/Users/list/1/10 |
-| Loendid | GET /api/TodoLists/get/1 | GET /api/TodoLists/list/1/10 |
-| Ülesanded | GET /api/TodoItems/get/1 | GET /api/TodoItems/list/1/10 |
+| Kasutajad | `GET /api/Users/get/1` | `GET /api/Users/list/1/10` |
+| Loendid | `GET /api/TodoLists/get/1` | `GET /api/TodoLists/list/1/10` |
+| Ülesanded | `GET /api/TodoItems/get/1` | `GET /api/TodoItems/list/1/10` |
 
-`/api/{kontroller}/list` kasutab vaikimisi esimest lehekülge ja lehe suurust 10. Päringuparameetrid töötavad samuti: `/api/Users/list?page=2&pageSize=5`.
+List-päringu viimased kaks arvu on lehekülje number ja suurus. `/list` kasutab vaikimisi väärtusi 1 ja 10; toetatud on ka `/list?page=2&pageSize=5`. Lehe suuruse ülempiir on 100.
 
-Kõigi Get-päringute vastusetüüp on `OperationResult<DetailDto>` ning List-päringutel `OperationResult<PagedResult<ListItemDto>>`. JSON tagastatakse objektina `application/json` vormingus.
+Get tagastab `OperationResult<Dto>` ja List `OperationResult<PagedResult<Dto>>`. Puuduv kirje ning ID, mis on nullist väiksem või sellega võrdne, annavad 404. Tühi loend tagastatakse 200 vastusena koos tühja `results` massiiviga.
 
-```json
-{
-  "value": {
-    "results": [{ "id": 1, "userName": "mari.tamm", "todoListCount": 1 }],
-    "currentPage": 1,
-    "pageCount": 35,
-    "pageSize": 1,
-    "rowCount": 35
-  },
-  "propertyErrors": null,
-  "errors": null,
-  "hasErrors": false
-}
-```
+Näidispäringud on failis [KooliProjekt.WebAPI.http](KooliProjekt.WebAPI/KooliProjekt.WebAPI.http).
 
-- `get/0`, negatiivne ID ja puuduv positiivne ID annavad **404**. Baaskontroller käsitleb ka null-vastust ja null-väärtust.
-- OperationResulti vead annavad **400**; tehnilised vead logitakse serveris, kliendile läheb üldine veateade.
-- List tagastab kirjete puudumisel **200** koos tühja `results` massiiviga.
-- Lehekülg alla ühe normaliseeritakse üheks; lehe suurus kuni nulliks normaliseeritakse kümneks; ülempiir on 100. Väga suur leheküljenumber tagastab tühja lehe ilma täisarvu ületäitumiseta.
-- Loendid sorditakse ID kasvamise järgi enne Skip/Take rakendamist. Päringud kasutavad `AsNoTracking`-ut, DTO-projektsioone ja tühistamist.
+## Ülesehitus
 
-## Miks just need DTO-d?
+- `KooliProjekt.Application/Data/` — andmemudel, DbContext, algandmed ja lehekülgjaotus.
+- `KooliProjekt.Application/Features/` — Get/List query'd ja nende handlerid.
+- `KooliProjekt.Application/Dto/` — API vastuste andmekujud.
+- `KooliProjekt.Application/Infrastructure/` — OperationResult ja PagedResult.
+- `KooliProjekt.Application/Migrations/` — andmebaasi migratsioonid.
+- `KooliProjekt.WebAPI/Controllers/` — HTTP päringute vastuvõtmine ja MediatR-i kasutamine.
 
-| DTO | Lõppkasutajale vajalik info |
-| --- | --- |
-| UserListItemDto | Kasutajanimi ja loendite arv aitavad kasutajaid leida ja võrrelda. |
-| UserDto | Lisaks kasutaja loendid koos pealkirjade ja edenemisega, et avada õige loend. |
-| TodoListItemDto | Pealkiri, omaniku nimi ja ID ning tehtud/kõigi ülesannete arv võimaldavad kuvada ülevaadet ja edenemist. |
-| TodoListDto | Lisaks järjestatud ülesanded koos lõpetamise olekuga, et näha loendi sisu. |
-| TodoItemDto | Ülesande pealkiri, lõpetamise olek, loendi nimi/ID ja omaniku nimi annavad ülesandele konteksti. |
+Päringu teekond: **Controller → Query → Handler → DbContext → DTO → OperationResult → HTTP-vastus**.
 
-Detail- ja loendivaated kasutavad eri DTO-sid seal, kus detailvaade vajab rohkem andmeid. Ülesandele piisab samast DTO-st mõlemas vaates. Parooliräsi ei kuulu ühtegi DTO-sse. EF-i navigeerimisobjekte API kaudu ei väljastata, seega ei teki tsüklilist JSON-i.
+DTO-d eraldavad andmebaasi mudeli API vastusest. Kasutaja detail sisaldab tema loendeid ning loendi detail selle ülesandeid. Loendite ülevaates näeb omanikku ja lõpetatud ülesannete arvu. Parooliräsi ei kuulu ühtegi DTO-sse.
 
-## Migratsioonid ja andmete kontroll
+## Migratsioonid
 
-Kaasas on õpetaja mudeliga ühilduv `InitialCreate` migratsioon ja mudeli snapshot. See loob tabelid Users, TodoLists ja TodoItems, kasutajanime unikaalse indeksi ning välisvõtmed. Rakenduse käivitamisel rakendatakse migratsioon automaatselt. Sama muutmata mudeli jaoks uut identset migratsiooni vaja ei ole.
-
-Visual Studio Package Manager Console'is:
+Esimene migratsioon on projektis olemas ja rakendatakse automaatselt. Kui andmemudelit muudad, lisa Visual Studio Package Manager Console'is uus migratsioon:
 
 ```powershell
-Update-Database -Project KooliProjekt.Application -StartupProject KooliProjekt.WebAPI
-# Alles pärast andmemudeli muutmist:
-Add-Migration KirjeldavMuudatuseNimi -Project KooliProjekt.Application -StartupProject KooliProjekt.WebAPI
+Add-Migration MuudatuseNimi -Project KooliProjekt.Application -StartupProject KooliProjekt.WebAPI
 Update-Database -Project KooliProjekt.Application -StartupProject KooliProjekt.WebAPI
 ```
 
-SQL Server Object Exploreris ühendu `(localdb)\MSSQLLocalDB` serveriga, tee Databases all Refresh ja ava `KooliProjekt_Opilane`. Tabelite kontrollpäring:
+SQL Server Object Exploreris saab andmeid vaadata serveri `(localdb)\MSSQLLocalDB` andmebaasist `KooliProjekt_Opilane`.
 
-```sql
-SELECT 'Users' AS Tabel, COUNT(*) AS Ridu FROM Users
-UNION ALL SELECT 'TodoLists', COUNT(*) FROM TodoLists
-UNION ALL SELECT 'TodoItems', COUNT(*) FROM TodoItems;
-```
+## Kontrollimine
 
-Breakpointide harjutus: pane katkestuspunkt kontrolleri `if (id <= 0)` juurde ja baaskontrolleri `if (result.Value == null)` juurde. Käivita siluriga ning küsi vastavalt `get/0` ja `get/2147483647`. Olemasoleva ID jaoks kasuta `get/1`.
-
-## Automaatsed kontrollid
-
-Käivitatud API kontrollimiseks (164 väidet):
+Käivitatud API kontrollimiseks:
 
 ```powershell
 pwsh -NoProfile -File tests/Verify-Api.ps1
 ```
 
-Andmebaasi täieliku elutsükli kontrollimiseks pärast Debug buildi:
+Andmebaasi loomise, korduskäivituse ja kustutamise järel taasloomise kontrollimiseks pärast Debug buildi:
 
 ```powershell
 pwsh -NoProfile -File tests/Verify-Database.ps1
 ```
 
-Teine skript loob eraldi juhusliku nimega testandmebaasi ja kasutab porti 5097. See kontrollib uue andmebaasi migratsiooni/algandmeid, korduskäivitust ilma duplikaatideta ja kustutamise järel automaatset taasloomist. Igas etapis kontrollitakse kogu API-t ja Swaggerit. Lõpus suletakse testprotsess ja eemaldatakse ainult skripti loodud testandmebaas. Rakenduse põhiandmebaasi see ei kustuta.
+Skriptid vajavad PowerShell 7; andmebaasi kontroll vajab ka `sqlcmd`-d. Teine skript loob eraldi testandmebaasi ning eemaldab selle lõpus. Rakenduse põhiandmebaasi see ei kustuta.
 
-Kontrollitud 23.10.2026: build õnnestus 0 vea ja 0 hoiatusega; API 164 kontrolli läbitud kõigis kolmes andmebaasi etapis (kokku 492), samuti Swaggeri kontrollid.
-
-## C# ja CQRS
-
-CQRS eraldab andmete lugemise päringuteks (Query) ja muutmise käskudeks (Command). Selles töös on realiseeritud lugemise pool: kontroller loob Query, MediatR leiab vastava Handler-i, Handler teeb EF Core'i päringu ja projitseerib tulemuse DTO-ks. OperationResult koondab tulemuse ning vead, PagedResult lisab loendi leheküljeinfo. Eraldi lugemisandmebaasi ega sündmuste salvestamist selle ülesande jaoks vaja pole.
-
-Allikad: [Microsofti CQRS-mustri kirjeldus](https://learn.microsoft.com/en-us/azure/architecture/patterns/cqrs) ja [C# juhend](https://learn.microsoft.com/en-us/dotnet/csharp/tour-of-csharp/).
+Siluriga katsetamiseks pane katkestuspunkt kontrolleri ID kontrolli ja baaskontrolleri `result.Value == null` kontrolli juurde. Proovi päringuid `get/0`, `get/2147483647` ning `get/1`.
