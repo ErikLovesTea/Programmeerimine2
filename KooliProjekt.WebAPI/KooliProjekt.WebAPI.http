@@ -1,6 +1,28 @@
-@KooliProjekt.WebAPI_HostAddress = http://localhost:5086
+@baseUrl = http://localhost:5086
 
-GET {{KooliProjekt.WebAPI_HostAddress}}/weatherforecast/
-Accept: application/json
+### Kasutajate lehekülg
+GET {{baseUrl}}/api/Users/list/1/10
 
-###
+### Kasutaja koos loenditega
+GET {{baseUrl}}/api/Users/get/1
+
+### Loendite teine lehekülg
+GET {{baseUrl}}/api/TodoLists/list/2/10
+
+### Loend koos ülesannetega
+GET {{baseUrl}}/api/TodoLists/get/1
+
+### Ülesannete lehekülg
+GET {{baseUrl}}/api/TodoItems/list/1/10
+
+### Üks ülesanne
+GET {{baseUrl}}/api/TodoItems/get/1
+
+### Vigane ID: 404
+GET {{baseUrl}}/api/Users/get/0
+
+### Puuduv kirje: 404
+GET {{baseUrl}}/api/TodoLists/get/2147483647
+
+### Puuduv lehekülg: 200 ja tühi results
+GET {{baseUrl}}/api/TodoItems/list/2147483647/10

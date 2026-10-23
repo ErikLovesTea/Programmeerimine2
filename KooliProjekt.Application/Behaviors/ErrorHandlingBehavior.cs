@@ -23,16 +23,20 @@ namespace KooliProjekt.Application.Behaviors
             {
                 return await next();
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 Debug.WriteLine(ex.Message);
                 Debug.WriteLine(ex.StackTrace);
 
-                _logger.LogError(ex.Message, ex);
+                _logger.LogError(ex, "Päringu töötlemine ebaõnnestus.");
 
                 var response = new TResponse();
 
-                response.AddError(ex.ToString());
+                response.AddError("Päringu töötlemine ebaõnnestus.");
 
                 return response;
             }

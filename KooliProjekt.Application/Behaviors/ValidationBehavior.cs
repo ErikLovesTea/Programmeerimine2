@@ -26,7 +26,7 @@ namespace KooliProjekt.Application.Behaviors
             var context = new ValidationContext<TRequest>(request);
             
             var validationFailures = await Task.WhenAll(
-                _validators.Select(validator => validator.ValidateAsync(context)));
+                _validators.Select(validator => validator.ValidateAsync(context, cancellationToken)));
 
             var errors = validationFailures
                 .Where(validationResult => !validationResult.IsValid)

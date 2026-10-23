@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "Profiles": [
+    {
+      "Name": "KooliProjekt.WebAPI",
+      "Projects": [
+        { "Path": "KooliProjekt.WebAPI\\KooliProjekt.WebAPI.csproj", "Action": "Start" }
+      ]
+    }
+  ]
+}
